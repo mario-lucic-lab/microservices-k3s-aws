@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gemini-service
+  namespace: default
+spec:
+  selector:
+    app: gemini-service
+  ports:
+    - protocol: TCP
+      port: 8001
+      targetPort: 8001

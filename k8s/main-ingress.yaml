@@ -1,0 +1,52 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: main-ingress
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: 98.86.128.16.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+
+      - path: /ai-health
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-service
+            port:
+              number: 8000
+
+      - path: /predict
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-service
+            port:
+              number: 8000
+
+      - path: /gemini-health
+        pathType: Prefix
+        backend:
+          service:
+            name: gemini-service
+            port:
+              number: 8001
+
+      - path: /analyze
+        pathType: Prefix
+        backend:
+          service:
+            name: gemini-service
+            port:
+              number: 8001
