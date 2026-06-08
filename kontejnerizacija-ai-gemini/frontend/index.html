@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>News Classifier</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --surface2: #1c1c27;
+      --border: rgba(255,255,255,0.07);
+      --accent: #6c63ff;
+      --accent-gemini: #f5a623;
+      --text: #f0f0f5;
+      --muted: #6b6b80;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      overflow-x: hidden;
+    }
+
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::before {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(108,99,255,0.18) 0%, transparent 70%);
+      top: -100px; left: -100px;
+      animation: blobMove1 12s ease-in-out infinite alternate;
+    }
+    body::after {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(245,166,35,0.1) 0%, transparent 70%);
+      bottom: -80px; right: -80px;
+      animation: blobMove2 15s ease-in-out infinite alternate;
+    }
+    @keyframes blobMove1 {
+      from { transform: translate(0,0) scale(1); }
+      to   { transform: translate(60px,80px) scale(1.15); }
+    }
+    @keyframes blobMove2 {
+      from { transform: translate(0,0) scale(1); }
+      to   { transform: translate(-50px,-60px) scale(1.2); }
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 520px;
+      animation: fadeUp 0.7s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(32px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Header */
+    .header {
+      margin-bottom: 2rem;
+      animation: fadeUp 0.7s 0.05s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    /* Status badge */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 5px 13px;
+      border-radius: 100px;
+      margin-bottom: 14px;
+      transition: background 0.5s, border-color 0.5s, color 0.5s;
+    }
+    .status-badge.state-ai {
+      background: rgba(108,99,255,0.15);
+      border: 1px solid rgba(108,99,255,0.3);
+      color: #a29bfe;
+    }
+    .status-badge.state-gemini {
+      background: rgba(245,166,35,0.12);
+      border: 1px solid rgba(245,166,35,0.3);
+      color: #f5c842;
+    }
+    .status-badge.state-offline {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.25);
+      color: #fca5a5;
+    }
+    .status-badge.state-checking {
+      background: rgba(107,114,128,0.1);
+      border: 1px solid rgba(107,114,128,0.2);
+      color: var(--muted);
+    }
+
+    .badge-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: background 0.5s, box-shadow 0.5s;
+    }
+    .state-ai     .badge-dot { background: #6c63ff; box-shadow: 0 0 8px #6c63ff; animation: pulse 2s ease-in-out infinite; }
+    .state-gemini .badge-dot { background: #f5a623; box-shadow: 0 0 8px #f5a623; animation: pulse 2s ease-in-out infinite; }
+    .state-offline .badge-dot { background: #ef4444; box-shadow: none; animation: none; }
+    .state-checking .badge-dot { background: var(--muted); box-shadow: none; animation: none; }
+
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:.5; transform:scale(.8); }
+    }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #fff 0%, #a29bfe 60%, #6c63ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 300;
+    }
+
+    /* Card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+      animation: fadeUp 0.7s 0.12s cubic-bezier(.22,1,.36,1) both;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(108,99,255,0.05) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .form-group { margin-bottom: 20px; }
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    input, textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      padding: 13px 16px;
+      outline: none;
+      transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+      resize: none;
+    }
+    input::placeholder, textarea::placeholder { color: rgba(107,107,128,0.5); }
+    input:focus, textarea:focus {
+      border-color: rgba(108,99,255,0.5);
+      box-shadow: 0 0 0 3px rgba(108,99,255,0.1);
+      background: #1e1e2e;
+    }
+    textarea { height: 100px; }
+
+    /* Button */
+    .btn {
+      width: 100%;
+      position: relative;
+      background: linear-gradient(135deg, #6c63ff 0%, #8b5cf6 100%);
+      color: #fff;
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 15px 24px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+      box-shadow: 0 4px 24px rgba(108,99,255,0.35);
+    }
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(108,99,255,0.5);
+    }
+    .btn:active:not(:disabled) { transform: translateY(0); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-inner { display: flex; align-items: center; justify-content: center; gap: 10px; }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Result */
+    .result-wrap {
+      margin-top: 20px;
+      animation: fadeUp 0.5s cubic-bezier(.22,1,.36,1) both;
+    }
+    .result-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .result-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-height: 62px;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .result-box.has-result-ai {
+      border-color: rgba(108,99,255,0.4);
+      box-shadow: 0 0 24px rgba(108,99,255,0.1);
+    }
+    .result-box.has-result-gemini {
+      border-color: rgba(245,166,35,0.4);
+      box-shadow: 0 0 24px rgba(245,166,35,0.1);
+    }
+    .result-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .result-icon.icon-ai     { background: linear-gradient(135deg, rgba(108,99,255,0.2), rgba(139,92,246,0.2)); }
+    .result-icon.icon-gemini { background: linear-gradient(135deg, rgba(245,166,35,0.2), rgba(247,151,30,0.2)); }
+
+    #ai-category {
+      font-family: 'Syne', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+    .source-tag {
+      margin-left: auto;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 100px;
+      flex-shrink: 0;
+    }
+    .source-tag.tag-ai {
+      background: rgba(108,99,255,0.15);
+      color: #a29bfe;
+      border: 1px solid rgba(108,99,255,0.25);
+    }
+    .source-tag.tag-gemini {
+      background: rgba(245,166,35,0.15);
+      color: #f5c842;
+      border: 1px solid rgba(245,166,35,0.25);
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: rgba(107,107,128,0.4);
+      animation: fadeUp 0.7s 0.2s cubic-bezier(.22,1,.36,1) both;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="status-badge state-checking" id="statusBadge">
+        <span class="badge-dot"></span>
+        <span id="badgeText">Provjera servisa...</span>
+      </div>
+      <h1>News Classifier</h1>
+      <p class="subtitle">Unesite vijest i AI će je automatski kategorizirati</p>
+    </div>
+
+    <div class="card">
+      <div class="form-group">
+        <label>Naslov vijesti</label>
+        <input type="text" id="headline" placeholder="Unesite naslov vijesti..." autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label>Kratki opis</label>
+        <textarea id="description" placeholder="Unesite kratki opis vijesti..."></textarea>
+      </div>
+      <button class="btn" id="classifyBtn" onclick="classifyOnly()">
+        <span class="btn-inner">
+          <span class="spinner" id="spinner"></span>
+          <span id="btnIcon">🤖</span>
+          <span id="btnText">Klasificiraj vijest</span>
+        </span>
+      </button>
+
+      <div class="result-wrap" id="resultWrap" style="display:none">
+        <div class="result-label">Kategorija</div>
+        <div class="result-box" id="resultBox">
+          <div class="result-icon icon-ai" id="resultIcon">🏷️</div>
+          <div id="ai-category"></div>
+          <span class="source-tag tag-ai" id="sourceTag">AI</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">Powered by AI · News Classification Engine</div>
+  </div>
+
+  <script>
+    const API_URL = window.location.origin;
+
+    // ── Health state ──────────────────────────────────────────
+    const health = { ai: false, gemini: false };
+
+    async function checkHealth() {
+      const [aiOk, geminiOk] = await Promise.all([
+        fetch(`${API_URL}/ai-health`,     { method: 'GET', headers: { 'accept': 'application/json' } })
+          .then(r => r.ok).catch(() => false),
+        fetch(`${API_URL}/gemini-health`, { method: 'GET', headers: { 'accept': 'application/json' } })
+          .then(r => r.ok).catch(() => false)
+      ]);
+
+      health.ai     = aiOk;
+      health.gemini = geminiOk;
+      updateBadge();
+    }
+
+    function updateBadge() {
+      const badge = document.getElementById('statusBadge');
+      const text  = document.getElementById('badgeText');
+
+      if (health.ai) {
+        badge.className    = 'status-badge state-ai';
+        text.textContent   = 'AI Model · Active';
+      } else if (health.gemini) {
+        badge.className    = 'status-badge state-gemini';
+        text.textContent   = 'Gemini · Active';
+      } else {
+        badge.className    = 'status-badge state-offline';
+        text.textContent   = 'Servisi · Offline';
+      }
+    }
+
+    // Provjeri odmah, pa svakih 60s
+    checkHealth();
+    setInterval(checkHealth, 60000);
+
+    // ── Classify ──────────────────────────────────────────────
+    async function classifyOnly() {
+      const headline = document.getElementById('headline').value.trim();
+      const desc     = document.getElementById('description').value.trim();
+      if (!headline) { shake(document.getElementById('headline')); return; }
+
+      setLoading(true);
+
+      let category = null;
+      let source   = null;
+
+      // 1. Pokušaj AI model ako je aktivan
+      if (health.ai) {
+        try {
+          const res  = await fetch(
+            `${API_URL}/predict?headline=${encodeURIComponent(headline)}&short_description=${encodeURIComponent(desc)}`,
+            { method: 'POST', headers: { 'accept': 'application/json' } }
+          );
+          const data = await res.json();
+          if (data.category && data.category !== 'undefined') {
+            category = data.category;
+            source   = 'ai';
+          }
+        } catch(e) {
+          health.ai = false;
+          updateBadge();
+        }
+      }
+
+      // 2. Fallback na Gemini
+      if (!category && health.gemini) {
+        try {
+          const res  = await fetch(`${API_URL}/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ headline, description: desc })
+          });
+          const data = await res.json();
+          if (data.category) {
+            category = data.category;
+            source   = 'gemini';
+          }
+        } catch(e) {
+          health.gemini = false;
+          updateBadge();
+        }
+      }
+
+      setLoading(false);
+
+      if (category) {
+        showResult(category, source);
+        // Ažuriraj badge na servis koji je stvarno odgovorio
+        const badge = document.getElementById('statusBadge');
+        const text  = document.getElementById('badgeText');
+        if (source === 'gemini' && !health.ai) {
+          badge.className  = 'status-badge state-gemini';
+          text.textContent = 'Gemini · Active';
+        }
+      } else {
+        alert('Greška: nijedan servis nije dostupan.');
+      }
+    }
+
+    function setLoading(on) {
+      document.getElementById('classifyBtn').disabled       = on;
+      document.getElementById('spinner').style.display     = on ? 'block' : 'none';
+      document.getElementById('btnIcon').style.display     = on ? 'none'  : 'inline';
+      document.getElementById('btnText').textContent       = on ? 'Klasificiram...' : 'Klasificiraj vijest';
+    }
+
+    function showResult(category, source) {
+      const box  = document.getElementById('resultBox');
+      const icon = document.getElementById('resultIcon');
+      const el   = document.getElementById('ai-category');
+      const tag  = document.getElementById('sourceTag');
+
+      el.textContent         = category;
+      document.getElementById('resultWrap').style.display = 'block';
+
+      if (source === 'gemini') {
+        box.className  = 'result-box has-result-gemini';
+        icon.className = 'result-icon icon-gemini';
+        icon.textContent = '✨';
+        tag.className  = 'source-tag tag-gemini';
+        tag.textContent = 'Gemini';
+      } else {
+        box.className  = 'result-box has-result-ai';
+        icon.className = 'result-icon icon-ai';
+        icon.textContent = '🏷️';
+        tag.className  = 'source-tag tag-ai';
+        tag.textContent = 'AI';
+      }
+    }
+
+    function shake(el) {
+      el.style.animation = 'none';
+      el.offsetHeight;
+      el.style.animation = 'shakeInput 0.4s ease';
+      el.focus();
+    }
+
+    const s = document.createElement('style');
+    s.textContent = `
+      @keyframes shakeInput {
+        0%,100% { transform:translateX(0); border-color:rgba(255,101,132,.6); }
+        20% { transform:translateX(-6px); }
+        40% { transform:translateX(6px); }
+        60% { transform:translateX(-4px); }
+        80% { transform:translateX(4px); }
+      }
+    `;
+    document.head.appendChild(s);
+
+    document.getElementById('headline').addEventListener('keydown', e => {
+      if (e.key === 'Enter') classifyOnly();
+    });
+  </script>
+</body>
+</html>
