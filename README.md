@@ -11,3 +11,6 @@ Frontend Microservice: Served via an Nginx Docker image (index.html and gemini.h
 Infrastructure & DevOps: Terraform automates the creation of 3 AWS instances (one t3.small master node with an Elastic IP and two t3.micro worker nodes), swap memory, and security groups (SSH port 22 restricted to admin IP, internal cluster traffic allowed, HTTP port 80 open). Services are packaged with Docker, stored on Docker Hub, tested locally with Docker Compose, orchestrated with K3s YAML manifests, routed through the Traefik Ingress Controller (main-ingress.yaml), and monitored via AWS CloudWatch.
 
 Demonstrated Scenarios: The deployment demonstrates zero-downtime service replacement by redirecting /predict traffic from the classical AI service (:8000) to the Gemini service (:8001) in main-ingress.yaml, automatic pod recovery (self-healing) after a simulated pod failure, and horizontal scaling across worker nodes to distribute load and reduce response times.
+
+* **Full Technical Report (Croatian):** [Mikroservisi.pdf](Mikroservisi.pdf)
+
